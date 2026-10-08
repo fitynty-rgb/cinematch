@@ -2,273 +2,188 @@ import streamlit as st
 import requests
 from datetime import date, timedelta
 
+
 st.set_page_config(
     page_title="CineMatch",
     page_icon="🎬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
+
 
 TMDB_TOKEN = st.secrets["TMDB_TOKEN"]
 
-BASE_URL = "https://api.themoviedb.org/3"
-IMAGE_URL = "https://image.tmdb.org/t/p/w500"
+HEADERS = {
+    "Authorization": f"Bearer {TMDB_TOKEN}",
+    "accept": "application/json"
+}
 
 
 def tmdb_get(endpoint, params=None):
-    headers = {
-        "Authorization": f"Bearer {TMDB_TOKEN}",
-        "accept": "application/json"
-    }
+    url = f"https://api.themoviedb.org/3/{endpoint}"
 
     try:
         response = requests.get(
-            BASE_URL + endpoint,
-            headers=headers,
-            params=params or {},
+            url,
+            headers=HEADERS,
+            params=params,
             timeout=15
         )
 
-        if response.status_code != 200:
-            return {
-                "error": f"TMDB Error {response.status_code}"
-            }
+        if response.status_code == 200:
+            return response.json()
 
-        return response.json()
+        return {}
 
-    except requests.exceptions.RequestException:
-        return {
-            "error": "Koneksi ke TMDB gagal"
-        }
+    except Exception:
+        return {}
 
 
-def poster_url(path):
-    if path:
-        return IMAGE_URL + path
+def get_image(path, size="w500"):
+    if not path:
+        return "https://via.placeholder.com/500x750?text=No+Poster"
 
-    return "https://placehold.co/500x750?text=No+Poster"
-
-
-def normalize_item(item, media_type=None):
-    item = dict(item)
-
-    if media_type:
-        item["media_type"] = media_type
-
-    if "media_type" not in item:
-        if "title" in item:
-            item["media_type"] = "movie"
-        elif "name" in item:
-            item["media_type"] = "tv"
-
-    if item.get("media_type") == "movie":
-        item["display_title"] = item.get(
-            "title",
-            "Tanpa Judul"
-        )
-        item["release_date"] = item.get(
-            "release_date",
-            ""
-        )
-    else:
-        item["display_title"] = item.get(
-            "name",
-            "Tanpa Judul"
-        )
-        item["release_date"] = item.get(
-            "first_air_date",
-            ""
-        )
-
-    return item
+    return f"https://image.tmdb.org/t/p/{size}{path}"
 
 
-def unique_items(items):
-    seen = set()
-    result = []
-
-    for item in items:
-        key = (
-            item.get("media_type"),
-            item.get("id")
-        )
-
-        if key not in seen:
-            seen.add(key)
-            result.append(item)
-
-    return result
-
-
-@st.cache_data(ttl=1800)
-def search_tmdb(query):
-    movie_data = tmdb_get(
-        "/search/movie",
-        {
-            "query": query,
-            "language": "id-ID",
-            "include_adult": False,
-            "page": 1
-        }
-    )
-
-    tv_data = tmdb_get(
-        "/search/tv",
-        {
-            "query": query,
-            "language": "id-ID",
-            "include_adult": False,
-            "page": 1
-        }
-    )
-
-    results = []
-
-    for item in movie_data.get("results", []):
-        if item.get("poster_path"):
-            results.append(
-                normalize_item(item, "movie")
-            )
-
-    for item in tv_data.get("results", []):
-        if item.get("poster_path"):
-            results.append(
-                normalize_item(item, "tv")
-            )
-
-    return unique_items(results)
-
-
-@st.cache_data(ttl=1800)
-def discover_movies(
-    pages=3,
-    sort_by="popularity.desc",
-    genre=None,
-    origin_country=None,
-    original_language=None,
-    date_gte=None,
-    date_lte=None
-):
-    results = []
-
-    for page in range(1, pages + 1):
-        params = {
-            "language": "id-ID",
-            "page": page,
-            "sort_by": sort_by,
-            "include_adult": False,
-            "include_video": False
-        }
-
-        if genre:
-            params["with_genres"] = genre
-
-        if origin_country:
-            params["with_origin_country"] = origin_country
-
-        if original_language:
-            params["with_original_language"] = original_language
-
-        if date_gte:
-            params["primary_release_date.gte"] = date_gte
-
-        if date_lte:
-            params["primary_release_date.lte"] = date_lte
-
-        data = tmdb_get(
-            "/discover/movie",
-            params
-        )
-
-        for item in data.get("results", []):
-            if item.get("poster_path"):
-                results.append(
-                    normalize_item(
-                        item,
-                        "movie"
-                    )
-                )
-
-    return unique_items(results)
-
-
-@st.cache_data(ttl=1800)
-def discover_tv(
-    pages=3,
-    sort_by="popularity.desc",
-    genre=None,
-    origin_country=None,
-    original_language=None,
-    date_gte=None,
-    date_lte=None
-):
-    results = []
-
-    for page in range(1, pages + 1):
-        params = {
-            "language": "id-ID",
-            "page": page,
-            "sort_by": sort_by,
-            "include_adult": False
-        }
-
-        if genre:
-            params["with_genres"] = genre
-
-        if origin_country:
-            params["with_origin_country"] = origin_country
-
-        if original_language:
-            params["with_original_language"] = original_language
-
-        if date_gte:
-            params["first_air_date.gte"] = date_gte
-
-        if date_lte:
-            params["first_air_date.lte"] = date_lte
-
-        data = tmdb_get(
-            "/discover/tv",
-            params
-        )
-
-        for item in data.get("results", []):
-            if item.get("poster_path"):
-                results.append(
-                    normalize_item(
-                        item,
-                        "tv"
-                    )
-                )
-
-    return unique_items(results)
-
-
-@st.cache_data(ttl=1800)
 def get_trending():
     data = tmdb_get(
-        "/trending/all/week",
+        "trending/all/week",
         {
             "language": "id-ID"
         }
     )
 
-    results = []
-
-    for item in data.get("results", []):
-        if item.get("media_type") in ["movie", "tv"]:
-            if item.get("poster_path"):
-                results.append(
-                    normalize_item(item)
-                )
-
-    return unique_items(results)
+    return data.get("results", [])
 
 
-@st.cache_data(ttl=1800)
-def get_details(media_type, item_id):
+def get_popular_movies():
+    data = tmdb_get(
+        "movie/popular",
+        {
+            "language": "id-ID",
+            "region": "ID"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_popular_tv():
+    data = tmdb_get(
+        "tv/popular",
+        {
+            "language": "id-ID"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_indonesia_movies():
+    data = tmdb_get(
+        "discover/movie",
+        {
+            "with_origin_country": "ID",
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_horror_movies():
+    data = tmdb_get(
+        "discover/movie",
+        {
+            "with_genres": "27",
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_korean_drama():
+    data = tmdb_get(
+        "discover/tv",
+        {
+            "with_origin_country": "KR",
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_chinese_drama():
+    data = tmdb_get(
+        "discover/tv",
+        {
+            "with_origin_country": "CN",
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def get_genre_movies(genre_id):
+    data = tmdb_get(
+        "discover/movie",
+        {
+            "with_genres": genre_id,
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    )
+
+    return data.get("results", [])
+
+
+def search_movies(query):
+    movie_data = tmdb_get(
+        "search/movie",
+        {
+            "query": query,
+            "language": "id-ID",
+            "include_adult": "false"
+        }
+    )
+
+    tv_data = tmdb_get(
+        "search/tv",
+        {
+            "query": query,
+            "language": "id-ID",
+            "include_adult": "false"
+        }
+    )
+
+    movies = movie_data.get("results", [])
+    tv = tv_data.get("results", [])
+
+    for item in movies:
+        item["media_type"] = "movie"
+
+    for item in tv:
+        item["media_type"] = "tv"
+
+    return movies + tv
+
+
+def get_detail(item):
+    media_type = item.get("media_type", "movie")
+    item_id = item.get("id")
+
+    if not item_id:
+        return {}
+
     return tmdb_get(
-        f"/{media_type}/{item_id}",
+        f"{media_type}/{item_id}",
         {
             "language": "id-ID",
             "append_to_response": "credits,videos"
@@ -276,510 +191,143 @@ def get_details(media_type, item_id):
     )
 
 
-def latest_movies():
-    today = date.today()
-    start = today - timedelta(days=365)
-
-    return discover_movies(
-        pages=5,
-        sort_by="primary_release_date.desc",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
+def get_title(item):
+    return item.get("title") or item.get("name") or "Tanpa Judul"
 
 
-def latest_tv():
-    today = date.today()
-    start = today - timedelta(days=365)
-
-    return discover_tv(
-        pages=5,
-        sort_by="first_air_date.desc",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
+def get_overview(item):
+    return item.get("overview") or "Belum ada deskripsi untuk film ini."
 
 
-def latest_indonesia():
-    today = date.today()
-    start = today - timedelta(days=365)
+def get_rating(item):
+    rating = item.get("vote_average")
 
-    return discover_movies(
-        pages=5,
-        sort_by="primary_release_date.desc",
-        origin_country="ID",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
+    if rating:
+        return f"{rating:.1f}"
+
+    return "N/A"
 
 
-def popular_indonesia():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        origin_country="ID"
-    )
-
-
-def latest_horror_indonesia():
-    today = date.today()
-    start = today - timedelta(days=730)
-
-    return discover_movies(
-        pages=5,
-        sort_by="primary_release_date.desc",
-        genre="27",
-        origin_country="ID",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
-
-
-def popular_horror_indonesia():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        genre="27",
-        origin_country="ID"
-    )
-
-
-def latest_kdrama():
-    today = date.today()
-    start = today - timedelta(days=365)
-
-    return discover_tv(
-        pages=5,
-        sort_by="first_air_date.desc",
-        origin_country="KR",
-        original_language="ko",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
-
-
-def popular_kdrama():
-    return discover_tv(
-        pages=5,
-        sort_by="popularity.desc",
-        origin_country="KR",
-        original_language="ko"
-    )
-
-
-def latest_dracin():
-    today = date.today()
-    start = today - timedelta(days=365)
-
-    return discover_tv(
-        pages=5,
-        sort_by="first_air_date.desc",
-        origin_country="CN",
-        original_language="zh",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
-
-
-def popular_dracin():
-    return discover_tv(
-        pages=5,
-        sort_by="popularity.desc",
-        origin_country="CN",
-        original_language="zh"
-    )
-
-
-def popular_horror():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        genre="27"
-    )
-
-
-def action_movies():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        genre="28"
-    )
-
-
-def romance_movies():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        genre="10749"
-    )
-
-
-def comedy_movies():
-    return discover_movies(
-        pages=5,
-        sort_by="popularity.desc",
-        genre="35"
-    )
-
-
-def search_category(query):
-    q = query.lower().strip()
-
-    if q in [
-        "indonesia",
-        "film indonesia",
-        "film indo"
-    ]:
-        return discover_movies(
-            pages=5,
-            sort_by="popularity.desc",
-            origin_country="ID"
-        )
-
-    if q in [
-        "horor indonesia",
-        "horror indonesia",
-        "horor indo",
-        "horror indo"
-    ]:
-        return discover_movies(
-            pages=5,
-            sort_by="popularity.desc",
-            genre="27",
-            origin_country="ID"
-        )
-
-    if q in [
-        "horor",
-        "horror",
-        "film horor",
-        "film horror"
-    ]:
-        return popular_horror()
-
-    if q in [
-        "drakor",
-        "kdrama",
-        "k-drama",
-        "korea",
-        "drama korea"
-    ]:
-        return popular_kdrama()
-
-    if q in [
-        "dracin",
-        "cdrama",
-        "c-drama",
-        "drama china",
-        "chinese drama"
-    ]:
-        return popular_dracin()
-
-    if q in [
-        "action",
-        "aksi",
-        "film action"
-    ]:
-        return action_movies()
-
-    if q in [
-        "romance",
-        "romantis",
-        "film romance"
-    ]:
-        return romance_movies()
-
-    if q in [
-        "comedy",
-        "komedi",
-        "film comedy"
-    ]:
-        return comedy_movies()
-
-    if q in [
-        "thriller",
-        "film thriller"
-    ]:
-        return discover_movies(
-            pages=5,
-            sort_by="popularity.desc",
-            genre="53"
-        )
-
-    if q == "anime":
-        return discover_tv(
-            pages=5,
-            sort_by="popularity.desc",
-            original_language="ja"
-        )
-
-    return search_tmdb(query)
-
-
-def show_movies(items, title, max_items=12):
-    if not items:
-        return
-
-    items = items[:max_items]
-
+def display_movies(items, title, limit=6):
     st.subheader(title)
 
-    cols = st.columns(
-        min(6, len(items))
-    )
+    if not items:
+        st.info("Film tidak ditemukan.")
+        return
+
+    items = items[:limit]
+
+    cols = st.columns(len(items))
 
     for index, item in enumerate(items):
-
-        with cols[index % len(cols)]:
+        with cols[index]:
+            poster = get_image(
+                item.get("poster_path"),
+                "w500"
+            )
 
             st.image(
-                poster_url(
-                    item.get("poster_path")
-                ),
+                poster,
                 use_container_width=True
             )
 
-            movie_title = item.get(
-                "display_title",
-                "Tanpa Judul"
-            )
-
-            if len(movie_title) > 22:
-                movie_title = (
-                    movie_title[:22] + "..."
-                )
-
-            rating = item.get(
-                "vote_average",
-                0
-            )
-
-            release = item.get(
-                "release_date",
-                ""
-            )
-
-            year = (
-                release[:4]
-                if release
-                else ""
+            st.markdown(
+                f"**{get_title(item)}**"
             )
 
             st.caption(
-                f"{movie_title}  •  ⭐ {rating:.1f}"
-                + (f"  •  {year}" if year else "")
+                f"⭐ {get_rating(item)}"
             )
 
             if st.button(
-                "Detail",
-                key=(
-                    f"{item.get('media_type')}_"
-                    f"{item.get('id')}_"
-                    f"{title}_{index}"
-                ),
+                "Lihat Detail",
+                key=f"detail_{title}_{index}_{item.get('id')}",
                 use_container_width=True
             ):
-                st.session_state[
-                    "selected_item"
-                ] = item
-
+                st.session_state["selected_item"] = item
                 st.rerun()
 
 
 def show_detail(item):
-    if not item:
+    detail = get_detail(item)
+
+    if not detail:
+        st.error("Detail film tidak dapat dimuat.")
         return
 
-    st.divider()
+    st.markdown("---")
 
-    media_type = item.get("media_type")
-    item_id = item.get("id")
-
-    details = get_details(
-        media_type,
-        item_id
-    )
-
-    if not details or "error" in details:
-        st.error(
-            "Detail film tidak dapat dimuat."
-        )
-        return
-
-    col1, col2 = st.columns(
-        [1, 2],
-        gap="large"
-    )
+    col1, col2 = st.columns([1, 2])
 
     with col1:
         st.image(
-            poster_url(
-                details.get("poster_path")
+            get_image(
+                detail.get("poster_path"),
+                "w500"
             ),
             use_container_width=True
         )
 
     with col2:
+        st.title(get_title(detail))
 
-        title = (
-            details.get("title")
-            if media_type == "movie"
-            else details.get("name")
-        )
-
-        st.title(
-            title or "Tanpa Judul"
-        )
-
-        rating = details.get(
-            "vote_average",
-            0
-        )
+        rating = detail.get("vote_average")
 
         if rating:
-            st.write(
-                f"⭐ Rating: {rating:.1f}/10"
+            st.markdown(
+                f"⭐ **{rating:.1f}/10**"
             )
 
-        release = (
-            details.get("release_date", "")
-            if media_type == "movie"
-            else details.get("first_air_date", "")
+        release_date = (
+            detail.get("release_date")
+            or detail.get("first_air_date")
         )
 
-        if release:
+        if release_date:
             st.write(
-                f"📅 Tahun: {release[:4]}"
+                f"📅 {release_date}"
             )
 
-        genres = details.get(
-            "genres",
-            []
-        )
+        genres = detail.get("genres", [])
 
         if genres:
-            names = [
-                genre.get("name", "")
+            genre_names = ", ".join(
+                genre["name"]
                 for genre in genres
-            ]
-
-            st.write(
-                "🎭 Genre: " +
-                ", ".join(names)
             )
 
-        countries = details.get(
-            "production_countries",
-            []
-        )
-
-        if countries:
-            names = [
-                country.get("name", "")
-                for country in countries
-            ]
-
             st.write(
-                "🌎 Negara: " +
-                ", ".join(names)
+                f"🎭 {genre_names}"
             )
 
-        overview = details.get(
-            "overview"
+        st.write(
+            get_overview(detail)
         )
 
-        if overview:
-            st.subheader("📝 Sinopsis")
-            st.write(overview)
+        credits = detail.get("credits", {})
+
+        cast = credits.get("cast", [])
+
+        if cast:
+            cast_names = ", ".join(
+                actor.get("name", "")
+                for actor in cast[:5]
+            )
+
+            st.write(
+                f"👥 **Pemeran:** {cast_names}"
+            )
 
         if st.button(
-            "✖ Tutup Detail",
+            "← Kembali",
             use_container_width=True
         ):
-            st.session_state[
-                "selected_item"
-            ] = None
+            st.session_state.pop(
+                "selected_item",
+                None
+            )
 
             st.rerun()
-
-
-st.markdown(
-    """
-    <style>
-
-    .stApp {
-        background: #080808;
-        color: white;
-    }
-
-    [data-testid="stSidebar"] {
-        background: #0d0d0d;
-    }
-
-    .brand {
-        font-size: 28px;
-        font-weight: 800;
-        color: #e50914;
-    }
-
-    .hero {
-        min-height: 360px;
-        padding: 55px 45px;
-        margin-bottom: 35px;
-        border-radius: 18px;
-        background:
-            linear-gradient(
-                90deg,
-                rgba(0,0,0,0.96),
-                rgba(0,0,0,0.65),
-                rgba(0,0,0,0.15)
-            ),
-            radial-gradient(
-                circle at 75% 35%,
-                #55205c,
-                #151515 55%,
-                #080808
-            );
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-
-    .hero h1 {
-        font-size: 52px;
-        margin: 0;
-        color: white;
-        font-weight: 900;
-    }
-
-    .hero p {
-        color: #c8c8c8;
-        font-size: 17px;
-        max-width: 620px;
-        line-height: 1.6;
-    }
-
-    div[data-testid="stImage"] img {
-        border-radius: 8px;
-    }
-
-    div.stButton > button {
-        background: #181818;
-        color: white;
-        border: 1px solid #333;
-        border-radius: 6px;
-    }
-
-    div.stButton > button:hover {
-        background: #e50914;
-        border-color: #e50914;
-        color: white;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 
 if not st.user.is_logged_in:
@@ -792,13 +340,58 @@ if not st.user.is_logged_in:
         "Masuk untuk menemukan film dan series favoritmu."
     )
 
-    if st.button(
+    st.button(
         "🔵 Masuk dengan Google",
-        use_container_width=True
-    ):
-        st.login()
+        use_container_width=True,
+        on_click=st.login
+    )
 
     st.stop()
+
+
+st.markdown(
+    """
+    <style>
+
+    .stApp {
+        background: #0b0b0b;
+    }
+
+    section[data-testid="stSidebar"] {
+        background: #111111;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] p {
+        color: white;
+    }
+
+    .main-title {
+        font-size: 42px;
+        font-weight: 800;
+        margin-bottom: 5px;
+    }
+
+    .main-subtitle {
+        color: #aaaaaa;
+        font-size: 16px;
+        margin-bottom: 25px;
+    }
+
+    div[data-testid="stImage"] img {
+        border-radius: 10px;
+    }
+
+    button {
+        border-radius: 8px !important;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 
 user_name = st.user.get(
@@ -810,13 +403,14 @@ user_name = st.user.get(
 with st.sidebar:
 
     st.markdown(
-        '<div class="brand">🎬 CineMatch</div>',
-        unsafe_allow_html=True
+        "# 🎬 CineMatch"
     )
 
-    st.caption(
-        f"👤 {user_name}"
+    st.write(
+        f"Halo, **{user_name}** 👋"
     )
+
+    st.markdown("---")
 
     menu = st.radio(
         "Menu",
@@ -831,7 +425,7 @@ with st.sidebar:
         ]
     )
 
-    st.divider()
+    st.markdown("---")
 
     if st.button(
         "🚪 Keluar",
@@ -840,330 +434,195 @@ with st.sidebar:
         st.logout()
 
 
+if "selected_item" in st.session_state:
+
+    show_detail(
+        st.session_state["selected_item"]
+    )
+
+    st.stop()
+
+
 if menu == "Home":
 
     st.markdown(
-        f"""
-        <div class="hero">
-            <h1>🎬 CineMatch</h1>
-            <p>
-                Halo, {user_name} 👋
-                Temukan film dan series yang
-                cocok untuk kamu malam ini.
-            </p>
-        </div>
-        """,
+        '<div class="main-title">🎬 CineMatch</div>',
         unsafe_allow_html=True
     )
 
-    st.subheader("🔎 Mau nonton apa?")
-
-    search_col1, search_col2 = st.columns(
-        [5, 1]
+    st.markdown(
+        '<div class="main-subtitle">Temukan film dan series favoritmu.</div>',
+        unsafe_allow_html=True
     )
 
-    with search_col1:
-        home_query = st.text_input(
-            "Cari",
-            placeholder="Cari film, series, drakor, dracin...",
-            label_visibility="collapsed"
-        )
+    trending = get_trending()
 
-    with search_col2:
-        home_search = st.button(
-            "🔍 Cari",
-            use_container_width=True
-        )
+    display_movies(
+        trending,
+        "🔥 Trending Sekarang",
+        6
+    )
 
-    if home_search and home_query.strip():
+    popular_movies = get_popular_movies()
 
-        with st.spinner("Mencari..."):
-            results = search_category(
-                home_query
-            )
+    display_movies(
+        popular_movies,
+        "🎥 Film Populer",
+        6
+    )
 
-        if results:
-            show_movies(
-                results,
-                f"Hasil: {home_query}",
-                12
-            )
-        else:
-            st.warning(
-                "Film atau series tidak ditemukan."
-            )
+    popular_tv = get_popular_tv()
 
-    else:
+    display_movies(
+        popular_tv,
+        "📺 Series Populer",
+        6
+    )
 
-        show_movies(
-            get_trending(),
-            "🔥 Trending Minggu Ini",
-            12
-        )
+    indonesia = get_indonesia_movies()
 
-        show_movies(
-            latest_movies(),
-            "🆕 Film Terbaru",
-            12
-        )
+    display_movies(
+        indonesia,
+        "🇮🇩 Film Indonesia",
+        6
+    )
 
-        show_movies(
-            latest_tv(),
-            "📺 Series Terbaru",
-            12
-        )
+    horror = get_horror_movies()
 
-        show_movies(
-            popular_indonesia(),
-            "🇮🇩 Film Indonesia Populer",
-            12
-        )
+    display_movies(
+        horror,
+        "👻 Horor",
+        6
+    )
 
-        show_movies(
-            latest_horror_indonesia(),
-            "👻🇮🇩 Horor Indonesia Terbaru",
-            12
-        )
+    korean = get_korean_drama()
 
-        show_movies(
-            popular_horror(),
-            "👻 Horor Internasional",
-            12
-        )
+    display_movies(
+        korean,
+        "🇰🇷 K-Drama",
+        6
+    )
 
-        show_movies(
-            popular_kdrama(),
-            "🇰🇷 K-Drama Populer",
-            12
-        )
+    chinese = get_chinese_drama()
 
-        show_movies(
-            popular_dracin(),
-            "🇨🇳 Dracin Populer",
-            12
-        )
-
-        show_movies(
-            action_movies(),
-            "💥 Action",
-            12
-        )
-
-        show_movies(
-            romance_movies(),
-            "❤️ Romance",
-            12
-        )
-
-        show_movies(
-            comedy_movies(),
-            "😂 Comedy",
-            12
-        )
+    display_movies(
+        chinese,
+        "🇨🇳 Dracin",
+        6
+    )
 
 
 elif menu == "Cari Film / Series":
 
-    st.subheader("🔎 Cari Film / Series")
+    st.title("🔎 Cari Film / Series")
 
-    col1, col2 = st.columns(
-        [5, 1]
+    query = st.text_input(
+        "Masukkan judul film atau series",
+        placeholder="Contoh: Avengers, Squid Game, Titanic..."
     )
 
-    with col1:
-        query = st.text_input(
-            "Cari film",
-            placeholder="Contoh: KKN di Desa Penari, Avengers, drakor...",
-            label_visibility="collapsed"
+    if query:
+
+        results = search_movies(query)
+
+        st.write(
+            f"Ditemukan {len(results)} hasil."
         )
 
-    with col2:
-        search_button = st.button(
-            "🔍 Cari",
-            use_container_width=True
+        display_movies(
+            results,
+            "Hasil Pencarian",
+            6
         )
-
-    if search_button:
-
-        if not query.strip():
-            st.warning(
-                "Masukkan judul film atau series."
-            )
-
-        else:
-
-            with st.spinner("Mencari..."):
-                results = search_category(
-                    query
-                )
-
-            if results:
-                show_movies(
-                    results,
-                    f"🔎 Hasil: {query}",
-                    30
-                )
-            else:
-                st.warning(
-                    "Film atau series tidak ditemukan."
-                )
 
 
 elif menu == "Film Indonesia":
 
-    st.header("🇮🇩 Film Indonesia")
+    st.title("🇮🇩 Film Indonesia")
 
-    tab1, tab2 = st.tabs(
-        ["🆕 Terbaru", "🔥 Populer"]
+    indonesia = get_indonesia_movies()
+
+    display_movies(
+        indonesia,
+        "Film Indonesia Terpopuler",
+        6
     )
-
-    with tab1:
-        show_movies(
-            latest_indonesia(),
-            "🇮🇩 Film Indonesia Terbaru",
-            30
-        )
-
-    with tab2:
-        show_movies(
-            popular_indonesia(),
-            "🇮🇩 Film Indonesia Populer",
-            30
-        )
 
 
 elif menu == "Horor Indonesia":
 
-    st.header("👻 Horor Indonesia")
+    st.title("👻 Horor Indonesia")
 
-    tab1, tab2, tab3 = st.tabs(
-        [
-            "🆕 Terbaru",
-            "🔥 Populer",
-            "🌎 Internasional"
-        ]
+    indonesia_horror = tmdb_get(
+        "discover/movie",
+        {
+            "with_origin_country": "ID",
+            "with_genres": "27",
+            "language": "id-ID",
+            "sort_by": "popularity.desc"
+        }
+    ).get("results", [])
+
+    display_movies(
+        indonesia_horror,
+        "Horor Indonesia",
+        6
     )
-
-    with tab1:
-        show_movies(
-            latest_horror_indonesia(),
-            "👻🇮🇩 Horor Indonesia Terbaru",
-            30
-        )
-
-    with tab2:
-        show_movies(
-            popular_horror_indonesia(),
-            "👻🇮🇩 Horor Indonesia Populer",
-            30
-        )
-
-    with tab3:
-        show_movies(
-            popular_horror(),
-            "👻🌎 Horor Internasional",
-            30
-        )
 
 
 elif menu == "K-Drama":
 
-    st.header("🇰🇷 K-Drama")
+    st.title("🇰🇷 K-Drama")
 
-    tab1, tab2 = st.tabs(
-        ["🆕 Terbaru", "🔥 Populer"]
+    korean = get_korean_drama()
+
+    display_movies(
+        korean,
+        "K-Drama Populer",
+        6
     )
-
-    with tab1:
-        show_movies(
-            latest_kdrama(),
-            "🇰🇷 K-Drama Terbaru",
-            30
-        )
-
-    with tab2:
-        show_movies(
-            popular_kdrama(),
-            "🇰🇷 K-Drama Populer",
-            30
-        )
 
 
 elif menu == "Dracin":
 
-    st.header("🇨🇳 Dracin")
+    st.title("🇨🇳 Dracin")
 
-    tab1, tab2 = st.tabs(
-        ["🆕 Terbaru", "🔥 Populer"]
+    chinese = get_chinese_drama()
+
+    display_movies(
+        chinese,
+        "Drama China Populer",
+        6
     )
-
-    with tab1:
-        show_movies(
-            latest_dracin(),
-            "🇨🇳 Dracin Terbaru",
-            30
-        )
-
-    with tab2:
-        show_movies(
-            popular_dracin(),
-            "🇨🇳 Dracin Populer",
-            30
-        )
 
 
 elif menu == "Genre":
 
-    st.header("🎭 Genre")
+    st.title("🎭 Pilih Genre")
 
-    genre = st.selectbox(
+    genre_options = {
+        "Action": 28,
+        "Adventure": 12,
+        "Comedy": 35,
+        "Drama": 18,
+        "Horror": 27,
+        "Romance": 10749,
+        "Science Fiction": 878,
+        "Thriller": 53,
+        "Animation": 16
+    }
+
+    selected_genre = st.selectbox(
         "Pilih genre",
-        [
-            "Horor",
-            "Action",
-            "Romance",
-            "Comedy",
-            "Thriller"
-        ]
+        list(genre_options.keys())
     )
 
-    if genre == "Horor":
-        results = popular_horror()
-
-    elif genre == "Action":
-        results = action_movies()
-
-    elif genre == "Romance":
-        results = romance_movies()
-
-    elif genre == "Comedy":
-        results = comedy_movies()
-
-    else:
-        results = discover_movies(
-            pages=5,
-            sort_by="popularity.desc",
-            genre="53"
-        )
-
-    show_movies(
-        results,
-        f"🎭 {genre}",
-        30
+    genre_movies = get_genre_movies(
+        genre_options[selected_genre]
     )
 
-
-selected = st.session_state.get(
-    "selected_item"
-)
-
-if selected:
-    show_detail(selected)
-
-
-st.divider()
-
-st.caption(
-    "CineMatch menggunakan TMDB untuk data film, "
-    "series, poster, dan informasi terkait."
-)
+    display_movies(
+        genre_movies,
+        f"Film {selected_genre}",
+        6
+    )
