@@ -390,19 +390,6 @@ def popular_dracin():
     )
 
 
-def latest_horror():
-    today = date.today()
-    start = today - timedelta(days=365)
-
-    return discover_movies(
-        pages=5,
-        sort_by="primary_release_date.desc",
-        genre="27",
-        date_gte=start.isoformat(),
-        date_lte=today.isoformat()
-    )
-
-
 def popular_horror():
     return discover_movies(
         pages=5,
@@ -838,18 +825,28 @@ st.markdown(
 
     .login-page {
         max-width: 520px;
-        margin: 80px auto;
+        margin: 100px auto 30px auto;
         text-align: center;
+        padding: 20px;
     }
 
     .login-logo {
         color: #e50914;
         font-size: 48px;
         font-weight: 900;
+        margin-bottom: 20px;
+    }
+
+    .login-heading {
+        color: white !important;
+        font-size: 36px;
+        font-weight: 800;
+        margin-bottom: 10px;
     }
 
     .login-text {
         color: #aaa;
+        font-size: 16px;
         margin-bottom: 30px;
     }
 
@@ -885,6 +882,19 @@ st.markdown(
             font-size: 10px;
             padding: 3px;
         }
+
+        .login-page {
+            margin-top: 60px;
+        }
+
+        .login-logo {
+            font-size: 38px;
+        }
+
+        .login-heading {
+            font-size: 28px;
+        }
+
     }
 
     </style>
@@ -902,9 +912,9 @@ if not st.user.is_logged_in:
                 🎬 CineMatch
             </div>
 
-            <h1 style="color:white;">
+            <div class="login-heading">
                 Selamat Datang
-            </h1>
+            </div>
 
             <div class="login-text">
                 Masuk untuk menemukan film dan
@@ -925,7 +935,7 @@ if not st.user.is_logged_in:
             "🔵  Masuk dengan Google",
             use_container_width=True
         ):
-            st.login("google")
+            st.login()
 
     st.stop()
 
