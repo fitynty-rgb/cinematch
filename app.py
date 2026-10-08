@@ -522,10 +522,7 @@ def show_movies(items, title, max_items=12):
 
     items = items[:max_items]
 
-    st.markdown(
-        f'<div class="row-title">{title}</div>',
-        unsafe_allow_html=True
-    )
+    st.subheader(title)
 
     cols = st.columns(
         min(6, len(items))
@@ -568,17 +565,9 @@ def show_movies(items, title, max_items=12):
                 else ""
             )
 
-            st.markdown(
-                f"""
-                <div class="poster-title">
-                    {movie_title}
-                </div>
-                <div class="poster-meta">
-                    ⭐ {rating:.1f}
-                    {" • " + year if year else ""}
-                </div>
-                """,
-                unsafe_allow_html=True
+            st.caption(
+                f"{movie_title}  •  ⭐ {rating:.1f}"
+                + (f"  •  {year}" if year else "")
             )
 
             if st.button(
@@ -603,10 +592,7 @@ def show_detail(item):
 
     st.divider()
 
-    media_type = item.get(
-        "media_type"
-    )
-
+    media_type = item.get("media_type")
     item_id = item.get("id")
 
     details = get_details(
@@ -641,8 +627,8 @@ def show_detail(item):
             else details.get("name")
         )
 
-        st.markdown(
-            f"# {title or 'Tanpa Judul'}"
+        st.title(
+            title or "Tanpa Judul"
         )
 
         rating = details.get(
@@ -652,7 +638,7 @@ def show_detail(item):
 
         if rating:
             st.write(
-                f"⭐ **Rating:** {rating:.1f}/10"
+                f"⭐ Rating: {rating:.1f}/10"
             )
 
         release = (
@@ -663,7 +649,7 @@ def show_detail(item):
 
         if release:
             st.write(
-                f"📅 **Tahun:** {release[:4]}"
+                f"📅 Tahun: {release[:4]}"
             )
 
         genres = details.get(
@@ -678,7 +664,7 @@ def show_detail(item):
             ]
 
             st.write(
-                "🎭 **Genre:** " +
+                "🎭 Genre: " +
                 ", ".join(names)
             )
 
@@ -694,7 +680,7 @@ def show_detail(item):
             ]
 
             st.write(
-                "🌎 **Negara:** " +
+                "🌎 Negara: " +
                 ", ".join(names)
             )
 
@@ -703,7 +689,7 @@ def show_detail(item):
         )
 
         if overview:
-            st.markdown("### 📝 Sinopsis")
+            st.subheader("📝 Sinopsis")
             st.write(overview)
 
         if st.button(
@@ -728,14 +714,12 @@ st.markdown(
 
     [data-testid="stSidebar"] {
         background: #0d0d0d;
-        border-right: 1px solid #222;
     }
 
     .brand {
         font-size: 28px;
         font-weight: 800;
         color: #e50914;
-        margin-bottom: 20px;
     }
 
     .hero {
@@ -775,35 +759,6 @@ st.markdown(
         line-height: 1.6;
     }
 
-    .search-title {
-        font-size: 25px;
-        font-weight: 700;
-        margin-bottom: 12px;
-    }
-
-    .row-title {
-        font-size: 23px;
-        font-weight: 750;
-        color: white;
-        margin-top: 28px;
-        margin-bottom: 14px;
-    }
-
-    .poster-title {
-        color: white;
-        font-size: 14px;
-        font-weight: 650;
-        line-height: 1.3;
-        margin-top: 7px;
-    }
-
-    .poster-meta {
-        color: #999;
-        font-size: 12px;
-        margin-top: 4px;
-        margin-bottom: 7px;
-    }
-
     div[data-testid="stImage"] img {
         border-radius: 8px;
     }
@@ -813,88 +768,12 @@ st.markdown(
         color: white;
         border: 1px solid #333;
         border-radius: 6px;
-        font-size: 12px;
-        min-height: 32px;
     }
 
     div.stButton > button:hover {
         background: #e50914;
         border-color: #e50914;
         color: white;
-    }
-
-    .login-page {
-        max-width: 520px;
-        margin: 100px auto 30px auto;
-        text-align: center;
-        padding: 20px;
-    }
-
-    .login-logo {
-        color: #e50914;
-        font-size: 48px;
-        font-weight: 900;
-        margin-bottom: 20px;
-    }
-
-    .login-heading {
-        color: white !important;
-        font-size: 36px;
-        font-weight: 800;
-        margin-bottom: 10px;
-    }
-
-    .login-text {
-        color: #aaa;
-        font-size: 16px;
-        margin-bottom: 30px;
-    }
-
-    @media (max-width: 768px) {
-
-        .hero {
-            min-height: 260px;
-            padding: 30px 22px;
-            border-radius: 12px;
-        }
-
-        .hero h1 {
-            font-size: 34px;
-        }
-
-        .hero p {
-            font-size: 14px;
-        }
-
-        .row-title {
-            font-size: 19px;
-        }
-
-        .poster-title {
-            font-size: 11px;
-        }
-
-        .poster-meta {
-            font-size: 10px;
-        }
-
-        div.stButton > button {
-            font-size: 10px;
-            padding: 3px;
-        }
-
-        .login-page {
-            margin-top: 60px;
-        }
-
-        .login-logo {
-            font-size: 38px;
-        }
-
-        .login-heading {
-            font-size: 28px;
-        }
-
     }
 
     </style>
@@ -905,37 +784,19 @@ st.markdown(
 
 if not st.user.is_logged_in:
 
-    st.markdown(
-        """
-        <div class="login-page">
-            <div class="login-logo">
-                🎬 CineMatch
-            </div>
+    st.title("🎬 CineMatch")
 
-            <div class="login-heading">
-                Selamat Datang
-            </div>
+    st.header("Selamat Datang")
 
-            <div class="login-text">
-                Masuk untuk menemukan film dan
-                series favoritmu.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.write(
+        "Masuk untuk menemukan film dan series favoritmu."
     )
 
-    col1, col2, col3 = st.columns(
-        [1, 2, 1]
-    )
-
-    with col2:
-
-        if st.button(
-            "🔵  Masuk dengan Google",
-            use_container_width=True
-        ):
-            st.login()
+    if st.button(
+        "🔵 Masuk dengan Google",
+        use_container_width=True
+    ):
+        st.login()
 
     st.stop()
 
@@ -945,20 +806,11 @@ user_name = st.user.get(
     "Pengguna"
 )
 
-user_email = st.user.get(
-    "email",
-    ""
-)
-
 
 with st.sidebar:
 
     st.markdown(
-        """
-        <div class="brand">
-            🎬 CineMatch
-        </div>
-        """,
+        '<div class="brand">🎬 CineMatch</div>',
         unsafe_allow_html=True
     )
 
@@ -1004,10 +856,7 @@ if menu == "Home":
         unsafe_allow_html=True
     )
 
-    st.markdown(
-        '<div class="search-title">🔎 Mau nonton apa?</div>',
-        unsafe_allow_html=True
-    )
+    st.subheader("🔎 Mau nonton apa?")
 
     search_col1, search_col2 = st.columns(
         [5, 1]
@@ -1115,10 +964,7 @@ if menu == "Home":
 
 elif menu == "Cari Film / Series":
 
-    st.markdown(
-        '<div class="search-title">🔎 Cari Film / Series</div>',
-        unsafe_allow_html=True
-    )
+    st.subheader("🔎 Cari Film / Series")
 
     col1, col2 = st.columns(
         [5, 1]
